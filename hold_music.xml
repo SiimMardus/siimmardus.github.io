@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Play loop="0">https://github.com/SiimMardus/siimmardus.github.io/blob/master/sound.wav</Play>
+    <Play loop="0">https://raw.githubusercontent.com/SiimMardus/siimmardus.github.io/master/sound.mp3</Play>
 </Response>
