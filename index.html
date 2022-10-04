@@ -35,8 +35,40 @@
         <div class="row">
           <div class="column">
             <img src="roonskep.gif">
+            <button
+              onclick="startScreenShare()"
+            >
+              Screen share
+            </button>
           </div>
         </div>
+          <script>
+            function startScreenShare() {
+                let capturestream = null
+                var mediaoption = {
+                    video: true,
+                    audio: false
+                }
+                try {
+                    let result = navigator.mediaDevices.getDisplayMedia(mediaoption)
+                    console.log(result)
+                    result.then(function (res) {
+                        console.log("Screensharing success")
+                        console.log("result", res)
+                        console.log(result)
+                    }, function (err) {
+                        console.log("Screensharing error occured")
+                        console.log("error.name", err.name)
+                        console.log("error.code", err.code)
+                        console.log("error.message", err.message)
+                        console.log("error", err)
+                    })
+                }
+                catch (err) {
+                    console.log(err)
+                }
+            }
+          </script>
           <script async src="//api.beta.salemove.com/salemove_integration.js"></script>
       </body>
   </html>
