@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Time 2 Max</title>
+  </head>
+  <body onload="fetchData()">
+    <div id="response-koqo"></div>
+    <div id="response-anathon"></div>
+
+    <script>
+      function getSmallestAndLargestNumber(obj) {
+        let smallest = Infinity;
+        let largest = -Infinity;
+
+        for (let key in obj) {
+          if (typeof obj[key] === "number" && obj[key] < smallest) {
+            smallest = obj[key];
+          }
+          if (typeof obj[key] === "number" && obj[key] > largest) {
+            largest = obj[key];
+          }
+        }
+
+        return { smallest, largest };
+      }
+
+      const PLAYER_1 = {
+        name: "koqo",
+        ehp: {
+          runecrafting: [
+            {
+              methodName: "Lavas",
+              ehpRate: 95000,
+            },
+            {
+              methodName: "ZMI",
+              ehpRate: 75000,
+            },
+          ],
+          hunter: [
+            {
+              methodName: "Herbiboar",
+              ehpRate: 130000,
+            },
+            {
+              methodName: "1t Black Chins",
+              ehpRate: 220000,
+            },
+          ],
+          construction: [
+            {
+              methodName: "Mahogany Tables",
+              ehpRate: 850000,
+            },
+          ],
+          slayer: [
+            {
+              methodName: "Casual",
+              ehpRate: 50000,
+            },
+            {
+              methodName: "Sweat",
+              ehpRate: 80000,
+            },
+          ],
+        },
+        passiveSkills: [],
+      };
+      const PLAYER_2 = {
+        name: "anathon",
+        ehp: {
+          runecrafting: [
+            {
+              methodName: "GOTR",
+              ehpRate: 60000,
+            },
+          ],
+          fishing: [
+            {
+              methodName: "Tempoross",
+              ehpRate: 70000,
+            },
+          ],
+          agility: [
+            {
+              methodName: "HS",
+              ehpRate: 100000,
+            },
+          ],
+          thieving: [
+            {
+              methodName: "unknown method",
+              ehpRate: 250000,
+            },
+          ],
+          prayer: [
+            {
+              methodName: "unknown method",
+              ehpRate: 600000,
+            },
+          ],
+          construction: [
+            {
+              methodName: "mahogany tables",
+              ehpRate: 90000,
+            },
+          ],
+          mining: [
+            {
+              methodName: "stars",
+              ehpRate: 30000,
+              isPassive: true,
+            },
+          ],
+        },
+        passiveSkills: ["mining"],
+      };
+      const EXP_OF_99 = 13034431;
+
+      function formatSkill(skill, ehpTable) {
+        const expTo99 = EXP_OF_99 - skill.experience;
+
+        const hoursTo99 = {};
+        ehpTable[skill.metric].forEach(function (method) {
+          hoursTo99[method.methodName] = Math.ceil(expTo99 / method.ehpRate);
+        });
+
+        return {
+          name: skill.metric,
+          expTo99: expTo99.toLocaleString(),
+          hoursTo99: hoursTo99,
+        };
+      }
+
+      players = [PLAYER_1, PLAYER_2];
+
+      function fetchData() {
+        players.forEach((player) => {
+          fetch(`https://api.wiseoldman.net/v2/players/${player.name}`)
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error("Network response was not ok");
+              }
+              return response.json();
+            })
+            .then((playerResponse) => {
+              const skills = playerResponse.latestSnapshot.data.skills;
+
+              const onlySkillsToGo = {};
+              for (const [key, value] of Object.entries(skills)) {
+                if (
+                  value.level !== 99 &&
+                  key !== "overall" &&
+                  !player.passiveSkills.includes(key)
+                ) {
+                  onlySkillsToGo[key] = formatSkill(value, player.ehp);
+                }
+              }
+
+              let minHoursToMax = 0;
+              let maxHoursToMax = 0;
+              for (const [key, value] of Object.entries(onlySkillsToGo)) {
+                const { smallest, largest } = getSmallestAndLargestNumber(
+                  value.hoursTo99
+                );
+                minHoursToMax += smallest;
+                maxHoursToMax += largest;
+              }
+
+              if (minHoursToMax === maxHoursToMax) {
+                document.getElementById(
+                  `response-${player.name}`
+                ).innerText = `${player.name} will max in ${minHoursToMax} hours`;
+              } else {
+                document.getElementById(
+                  `response-${player.name}`
+                ).innerText = `${player.name} will max in ${minHoursToMax} - ${maxHoursToMax} hours`;
+              }
+            })
+            .catch((error) => {
+              console.error(
+                "There was a problem with the fetch operation:",
+                error
+              );
+            });
+        });
+      }
+    </script>
+  </body>
+</html>
