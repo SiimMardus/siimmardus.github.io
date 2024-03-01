@@ -4,12 +4,100 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Time 2 Max</title>
+    <style>
+      html {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(
+          to right,
+          paleturquoise 0%,
+          paleturquoise 50%,
+          lightgreen 50%,
+          lightgreen 100%
+        );
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      .container {
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+
+        .section {
+          display: flex;
+          justify-content: center;
+          width: 50%;
+          margin: 10px;
+          padding: 10px;
+
+          .response {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            width: fit-content;
+            padding: 20px;
+            border: 1px solid black;
+
+            .name {
+              display: flex;
+              justify-content: center;
+              border: 1px solid black;
+              margin-bottom: 10px;
+              font-weight: bold;
+            }
+
+            .skills-todo {
+              display: flex;
+              flex-direction: column;
+
+              .skill {
+                display: flex;
+                justify-content: space-between;
+                border: 1px solid black;
+                margin: 5px 0;
+                padding: 5px;
+
+                .skill-name {
+                  padding-right: 10px;
+                }
+              }
+            }
+
+            .ttm {
+              padding-top: 20px;
+              font-weight: bold;
+            }
+          }
+        }
+      }
+    </style>
   </head>
   <body onload="fetchData()">
-    <div id="response-koqo"></div>
-    <div id="response-anathon"></div>
+    <div class="container">
+      <div class="section left">
+        <div class="response">
+          <div class="name">koqo</div>
+          <div class="skills-todo" id="skills-todo-koqo"></div>
+          <div class="ttm" id="ttm-koqo"></div>
+        </div>
+      </div>
+      <div class="section right">
+        <div class="response">
+          <div class="name">anathon</div>
+          <div class="skills-todo" id="skills-todo-anathon"></div>
+          <div class="ttm" id="ttm-anathon"></div>
+        </div>
+      </div>
+    </div>
 
     <script>
+      // Util Helpers
       function getSmallestAndLargestNumber(obj) {
         let smallest = Infinity;
         let largest = -Infinity;
@@ -26,9 +114,13 @@
         return { smallest, largest };
       }
 
+      // Constants
+      const EXP_OF_99 = 13034431;
+
+      // Players
       const PLAYER_1 = {
         name: "koqo",
-        ehp: {
+        ehpTable: {
           runecrafting: [
             {
               methodName: "Lavas",
@@ -70,7 +162,7 @@
       };
       const PLAYER_2 = {
         name: "anathon",
-        ehp: {
+        ehpTable: {
           runecrafting: [
             {
               methodName: "GOTR",
@@ -117,24 +209,19 @@
         },
         passiveSkills: ["mining"],
       };
-      const EXP_OF_99 = 13034431;
+      players = [PLAYER_1, PLAYER_2];
 
-      function formatSkill(skill, ehpTable) {
-        const expTo99 = EXP_OF_99 - skill.experience;
+      // Feature helpers
+      function getHoursTo99(skillValues, ehpTable) {
+        const expTo99 = EXP_OF_99 - skillValues.experience;
 
         const hoursTo99 = {};
-        ehpTable[skill.metric].forEach(function (method) {
+        ehpTable[skillValues.metric].forEach(function (method) {
           hoursTo99[method.methodName] = Math.ceil(expTo99 / method.ehpRate);
         });
 
-        return {
-          name: skill.metric,
-          expTo99: expTo99.toLocaleString(),
-          hoursTo99: hoursTo99,
-        };
+        return hoursTo99;
       }
-
-      players = [PLAYER_1, PLAYER_2];
 
       function fetchData() {
         players.forEach((player) => {
@@ -146,37 +233,77 @@
               return response.json();
             })
             .then((playerResponse) => {
+              // Get remaining hours to 99 per skill
               const skills = playerResponse.latestSnapshot.data.skills;
-
-              const onlySkillsToGo = {};
-              for (const [key, value] of Object.entries(skills)) {
+              const remainingHoursTo99 = {};
+              for (const [skillName, skillValues] of Object.entries(skills)) {
                 if (
-                  value.level !== 99 &&
-                  key !== "overall" &&
-                  !player.passiveSkills.includes(key)
+                  skillValues.level !== 99 &&
+                  skillName !== "overall" &&
+                  !player.passiveSkills.includes(skillName)
                 ) {
-                  onlySkillsToGo[key] = formatSkill(value, player.ehp);
+                  remainingHoursTo99[skillName] = getHoursTo99(
+                    skillValues,
+                    player.ehpTable
+                  );
                 }
               }
 
+              // Get min and max hours for the range
               let minHoursToMax = 0;
               let maxHoursToMax = 0;
-              for (const [key, value] of Object.entries(onlySkillsToGo)) {
-                const { smallest, largest } = getSmallestAndLargestNumber(
-                  value.hoursTo99
-                );
+              for (const [skillName, hoursTo99] of Object.entries(
+                remainingHoursTo99
+              )) {
+                const { smallest, largest } =
+                  getSmallestAndLargestNumber(hoursTo99);
+                // DOM logic
+                // to place JSON.stringify(Object.values(hoursTo99))
+                // Create div for skill row
+                const skillNode = document.createElement("div");
+                skillNode.classList.add("skill");
+                // Create div for skill name
+                const skillNameNode = document.createElement("div");
+                skillNameNode.classList.add("skill-name");
+                const skillNameTextNode = document.createTextNode(skillName);
+                skillNameNode.appendChild(skillNameTextNode);
+                // Create div for skill values
+                const skillValuesNode = document.createElement("div");
+                skillValuesNode.classList.add("skill-values");
+
+                let skillValuesTextNode;
+                if (smallest === largest) {
+                  skillValuesTextNode = document.createTextNode(
+                    `${smallest} hours`
+                  );
+                } else {
+                  skillValuesTextNode = document.createTextNode(
+                    `${smallest} - ${largest} hours`
+                  );
+                }
+
+                skillValuesNode.appendChild(skillValuesTextNode);
+
+                skillNode.appendChild(skillNameNode);
+                skillNode.appendChild(skillValuesNode);
+
+                document
+                  .getElementById(`skills-todo-${player.name}`)
+                  .appendChild(skillNode);
+
                 minHoursToMax += smallest;
                 maxHoursToMax += largest;
               }
 
+              // Render into element based on values
               if (minHoursToMax === maxHoursToMax) {
                 document.getElementById(
-                  `response-${player.name}`
-                ).innerText = `${player.name} will max in ${minHoursToMax} hours`;
+                  `ttm-${player.name}`
+                ).innerText = `Time to max: ${minHoursToMax} hours`;
               } else {
                 document.getElementById(
-                  `response-${player.name}`
-                ).innerText = `${player.name} will max in ${minHoursToMax} - ${maxHoursToMax} hours`;
+                  `ttm-${player.name}`
+                ).innerText = `Time to max: ${minHoursToMax} - ${maxHoursToMax} hours`;
               }
             })
             .catch((error) => {
