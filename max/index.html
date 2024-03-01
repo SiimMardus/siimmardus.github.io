@@ -8,13 +8,7 @@
       html {
         height: 100%;
         width: 100%;
-        background: linear-gradient(
-          to right,
-          paleturquoise 0%,
-          paleturquoise 50%,
-          lightgreen 50%,
-          lightgreen 100%
-        );
+        background: linear-gradient(to right, lightblue, pink);
       }
 
       body {
@@ -35,6 +29,7 @@
         top: 0;
         margin-top: 10vh;
         border: 1px solid black;
+        border-radius: 10px;
         height: 10vh;
         width: 50vw;
 
@@ -52,10 +47,8 @@
           flex-direction: row;
 
           .selection {
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
             border: 1px solid #ccc;
+            border-radius: 10px;
             padding: 10px 20px;
             cursor: pointer;
             background-color: white;
@@ -64,7 +57,7 @@
           }
 
           .selected {
-            background-color: blue;
+            background-color: seagreen;
             color: white;
           }
         }
@@ -89,11 +82,11 @@
             width: fit-content;
             padding: 20px;
             border: 1px solid black;
+            border-radius: 10px;
 
             .name {
               display: flex;
               justify-content: center;
-              border: 1px solid black;
               margin-bottom: 10px;
               font-weight: bold;
             }
@@ -106,6 +99,8 @@
                 display: flex;
                 justify-content: space-between;
                 border: 1px solid black;
+                border-radius: 10px;
+
                 margin: 5px 0;
                 padding: 5px;
 
@@ -116,6 +111,8 @@
             }
 
             .ttm {
+              display: flex;
+              justify-content: center;
               padding-top: 20px;
               font-weight: bold;
             }
