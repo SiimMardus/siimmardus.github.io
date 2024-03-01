@@ -16,12 +16,58 @@
           lightgreen 100%
         );
       }
+
       body {
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         height: 100%;
         overflow: hidden;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .controls {
+        position: absolute;
+        top: 0;
+        margin-top: 10vh;
+        border: 1px solid black;
+        height: 10vh;
+        width: 50vw;
+
+        .title {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin: 20px;
+        }
+
+        .options {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex-direction: row;
+
+          .selection {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            border: 1px solid #ccc;
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: white;
+            display: inline-block;
+            margin: 5px;
+          }
+
+          .selected {
+            background-color: blue;
+            color: white;
+          }
+        }
       }
 
       .container {
@@ -78,8 +124,23 @@
       }
     </style>
   </head>
-  <body onload="fetchData()">
-    <div class="container">
+  <body onload="onPageLoad()">
+    <div id="error" class="hidden">Too many requests, retrying</div>
+    <div id="controls" class="controls">
+      <div class="title">Select Time Period</div>
+      <div class="options">
+        <div id="day" class="selection" onclick="handleSelection('day')">
+          Day
+        </div>
+        <div id="week" class="selection" onclick="handleSelection('week')">
+          Week
+        </div>
+        <div id="month" class="selection" onclick="handleSelection('month')">
+          Month
+        </div>
+      </div>
+    </div>
+    <div id="container" class="container">
       <div class="section left">
         <div class="response">
           <div class="name">koqo</div>
@@ -223,7 +284,23 @@
         return hoursTo99;
       }
 
-      function fetchData() {
+      function handleSelection(value) {
+        localStorage.setItem("selectedOption", value); // Store selected option in local storage
+
+        window.location.reload();
+      }
+
+      function onPageLoad() {
+        var selectedOption = localStorage.getItem("selectedOption");
+        if (selectedOption) {
+          var selection = document.getElementById(selectedOption);
+          selection.classList.add("selected");
+        }
+
+        fetchData(selectedOption);
+      }
+
+      function fetchData(gainsPeriod) {
         players.forEach((player) => {
           fetch(`https://api.wiseoldman.net/v2/players/${player.name}`)
             .then((response) => {
@@ -233,80 +310,137 @@
               return response.json();
             })
             .then((playerResponse) => {
-              // Get remaining hours to 99 per skill
-              const skills = playerResponse.latestSnapshot.data.skills;
-              const remainingHoursTo99 = {};
-              for (const [skillName, skillValues] of Object.entries(skills)) {
-                if (
-                  skillValues.level !== 99 &&
-                  skillName !== "overall" &&
-                  !player.passiveSkills.includes(skillName)
-                ) {
-                  remainingHoursTo99[skillName] = getHoursTo99(
-                    skillValues,
-                    player.ehpTable
+              fetch(
+                `https://api.wiseoldman.net/v2/players/${player.name}/gained?period=${gainsPeriod}`
+              )
+                .then((response) => {
+                  if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                  }
+                  return response.json();
+                })
+                .then((gainsResponse) => {
+                  console.log(`gains for ${player.name}`, gainsResponse);
+
+                  // Get remaining hours to 99 per skill
+                  const skills = playerResponse.latestSnapshot.data.skills;
+                  const remainingHoursTo99 = {};
+                  for (const [skillName, skillValues] of Object.entries(
+                    skills
+                  )) {
+                    if (
+                      skillValues.level !== 99 &&
+                      skillName !== "overall" &&
+                      !player.passiveSkills.includes(skillName)
+                    ) {
+                      remainingHoursTo99[skillName] = getHoursTo99(
+                        skillValues,
+                        player.ehpTable
+                      );
+                    }
+                  }
+
+                  // Get min and max hours for the range
+                  let minHoursToMax = 0;
+                  let maxHoursToMax = 0;
+                  for (const [skillName, hoursTo99] of Object.entries(
+                    remainingHoursTo99
+                  )) {
+                    const { smallest, largest } =
+                      getSmallestAndLargestNumber(hoursTo99);
+
+                    const gainedXpToday =
+                      gainsResponse.data.skills[skillName].experience.gained;
+                    let maxEhpForSkill = 0;
+                    const ehpRates = player.ehpTable[skillName].forEach(
+                      (method) => {
+                        if (method.ehpRate > maxEhpForSkill) {
+                          maxEhpForSkill = method.ehpRate;
+                        }
+                      }
+                    );
+                    console.log(
+                      `largest ehp for ${skillName} is ${maxEhpForSkill}`
+                    );
+                    const gainedEhpForPeriod = Number(
+                      gainedXpToday / maxEhpForSkill
+                    ).toFixed(2);
+
+                    // DOM logic
+                    // Create div for skill row
+                    const skillNode = document.createElement("div");
+                    skillNode.classList.add("skill");
+                    // Create div for skill name
+                    const skillNameNode = document.createElement("div");
+                    skillNameNode.classList.add("skill-name");
+                    const skillNameTextNode =
+                      document.createTextNode(skillName);
+                    skillNameNode.appendChild(skillNameTextNode);
+                    // Create div for skill values
+                    const skillValuesNode = document.createElement("div");
+                    skillValuesNode.classList.add("skill-values");
+
+                    const granularityValueMap = {
+                      day: "Today",
+                      week: "This week",
+                      month: "This month",
+                    };
+
+                    let skillValuesTextNode;
+                    if (smallest === largest) {
+                      skillValuesTextNode = document.createTextNode(
+                        `${smallest} hours to go. ${granularityValueMap[gainsPeriod]}: ${gainedEhpForPeriod}`
+                      );
+                    } else {
+                      skillValuesTextNode = document.createTextNode(
+                        `${smallest} - ${largest} hours to go. ${granularityValueMap[gainsPeriod]}: ${gainedEhpForPeriod}`
+                      );
+                    }
+
+                    skillValuesNode.appendChild(skillValuesTextNode);
+
+                    skillNode.appendChild(skillNameNode);
+                    skillNode.appendChild(skillValuesNode);
+
+                    document
+                      .getElementById(`skills-todo-${player.name}`)
+                      .appendChild(skillNode);
+
+                    minHoursToMax += smallest;
+                    maxHoursToMax += largest;
+                  }
+
+                  // Render into element based on values
+                  if (minHoursToMax === maxHoursToMax) {
+                    document.getElementById(
+                      `ttm-${player.name}`
+                    ).innerText = `Time to max: ${minHoursToMax} hours`;
+                  } else {
+                    document.getElementById(
+                      `ttm-${player.name}`
+                    ).innerText = `Time to max: ${minHoursToMax} - ${maxHoursToMax} hours`;
+                  }
+                })
+                .catch((error) => {
+                  console.error(
+                    "There was a problem with the fetch operation:",
+                    error
                   );
-                }
-              }
-
-              // Get min and max hours for the range
-              let minHoursToMax = 0;
-              let maxHoursToMax = 0;
-              for (const [skillName, hoursTo99] of Object.entries(
-                remainingHoursTo99
-              )) {
-                const { smallest, largest } =
-                  getSmallestAndLargestNumber(hoursTo99);
-                // DOM logic
-                // to place JSON.stringify(Object.values(hoursTo99))
-                // Create div for skill row
-                const skillNode = document.createElement("div");
-                skillNode.classList.add("skill");
-                // Create div for skill name
-                const skillNameNode = document.createElement("div");
-                skillNameNode.classList.add("skill-name");
-                const skillNameTextNode = document.createTextNode(skillName);
-                skillNameNode.appendChild(skillNameTextNode);
-                // Create div for skill values
-                const skillValuesNode = document.createElement("div");
-                skillValuesNode.classList.add("skill-values");
-
-                let skillValuesTextNode;
-                if (smallest === largest) {
-                  skillValuesTextNode = document.createTextNode(
-                    `${smallest} hours`
-                  );
-                } else {
-                  skillValuesTextNode = document.createTextNode(
-                    `${smallest} - ${largest} hours`
-                  );
-                }
-
-                skillValuesNode.appendChild(skillValuesTextNode);
-
-                skillNode.appendChild(skillNameNode);
-                skillNode.appendChild(skillValuesNode);
-
-                document
-                  .getElementById(`skills-todo-${player.name}`)
-                  .appendChild(skillNode);
-
-                minHoursToMax += smallest;
-                maxHoursToMax += largest;
-              }
-
-              // Render into element based on values
-              if (minHoursToMax === maxHoursToMax) {
-                document.getElementById(
-                  `ttm-${player.name}`
-                ).innerText = `Time to max: ${minHoursToMax} hours`;
-              } else {
-                document.getElementById(
-                  `ttm-${player.name}`
-                ).innerText = `Time to max: ${minHoursToMax} - ${maxHoursToMax} hours`;
-              }
+                });
             })
             .catch((error) => {
+              console.log("here");
+              const errorElement = document.getElementById("error");
+              const controlsElement = document.getElementById("controls");
+              const containerElement = document.getElementById("container");
+              controlsElement.classList.add("hidden");
+              containerElement.classList.add("hidden");
+              errorElement.classList.remove("hidden");
+
+              setTimeout(() => {
+                window.location.reload();
+              }, 1000);
+
               console.error(
                 "There was a problem with the fetch operation:",
                 error
